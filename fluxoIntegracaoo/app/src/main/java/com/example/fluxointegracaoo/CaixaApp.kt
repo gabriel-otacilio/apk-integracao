@@ -47,7 +47,7 @@ sealed interface  Tela {
 fun CaixaApp() {
     val activity = LocalContext.current as Activity
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val usarPos7 = false  // false = simulado | true = POS7 (maquininha)
+    val usarPos7 = true  // false = simulado | true = POS7 (maquininha)
     val gateway: PagamentoGateWay = remember {
         if (usarPos7) Pos7Gateway(activity) else SimulatedGateway()
     }
