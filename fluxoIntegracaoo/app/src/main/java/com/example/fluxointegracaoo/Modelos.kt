@@ -39,7 +39,7 @@ data class ResultTransacao(
 
 interface PagamentoGateWay{
 
-
+    suspend fun cancelar(onEtapa:(String) -> Unit ): ResultTransacao
     val nome: String
     suspend fun pagar(pedido: PedidoPagamento, onEtapa:(String) -> Unit): ResultTransacao
 }

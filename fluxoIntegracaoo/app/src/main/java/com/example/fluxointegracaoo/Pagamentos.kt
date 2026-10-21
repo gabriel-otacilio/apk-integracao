@@ -35,6 +35,20 @@ object ResultParser{
 
 class SimulatedGateway: PagamentoGateWay{
     override val nome = "Simulação"
+    override suspend fun cancelar(onEtapa: (String) -> Unit): ResultTransacao {
+        onEtapa("Cancelando venda...")
+        delay(1500)
+        val json = """
+    {
+      "result": 1,
+      "transactionID": "CANCEL-0001",
+      "authorizationCode": "000000",
+      "displayMessage": "VENDA CANCELADA",
+      "responseCode": "00"
+    }
+    """.trimIndent()
+        return interpretarResultadoPos7(json)
+    }
     override suspend fun pagar (
         pedido: PedidoPagamento,
         onEtapa: (String) -> Unit,

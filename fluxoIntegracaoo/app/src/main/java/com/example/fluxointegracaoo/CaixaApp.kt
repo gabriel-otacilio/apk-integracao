@@ -62,6 +62,16 @@ fun CaixaApp() {
 
     val total = carrinho.entries.sumOf { it.key.precoReais * it.value }
 
+    fun mostrarResultado(resultado: ResultTransacao) {
+        scope.launch {
+            // espera o app Sipag fechar (volta ao primeiro plano), máx. 15 s
+            withTimeoutOrNull(15_000) {
+                lifecycle.currentStateFlow.first { it == Lifecycle.State.RESUMED }
+            }
+            tela = Tela.Resultado(resultado)
+        }
+    }
+
     fun cobrar() {
         if (tela is Tela.Processando) return
 
@@ -87,13 +97,28 @@ fun CaixaApp() {
                     mensagem = e.message ?: "Erro ao processar o pagamento",
                 )
             }
+            mostrarResultado(resultado)
+        }
+    }
 
+    fun cancelar() {
+        if (tela is Tela.Processando) return
 
-            withTimeoutOrNull(15_000) {
-                lifecycle.currentStateFlow.first { it == Lifecycle.State.RESUMED }
+        etapas.clear()
+        tela = Tela.Processando
+        scope.launch {
+            val resultado = try {
+                gateway.cancelar { etapas.add(it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("Caixa", "Falha no cancelamento", e)
+                ResultTransacao(
+                    aprovada = false,
+                    mensagem = e.message ?: "Erro ao cancelar a venda",
+                )
             }
-
-            tela = Tela.Resultado(resultado)
+            mostrarResultado(resultado)
         }
     }
 
@@ -110,7 +135,12 @@ fun CaixaApp() {
             )
             val atual = tela
             when (atual) {
-                is Tela.Cardapio -> TelaCardapio(carrinho, total) { tela = Tela.Pagamento }
+                is Tela.Cardapio -> TelaCardapio(
+                    carrinho = carrinho,
+                    total = total,
+                    onCobrar = { tela = Tela.Pagamento },
+                    onCancelar = { cancelar() },
+                )
                 is Tela.Pagamento -> TelaPagamento(
                     total = total,
                     forma = forma, onForma = { forma = it },
@@ -131,9 +161,11 @@ fun CaixaApp() {
 
 @Composable
 fun TelaCardapio(
+
     carrinho: SnapshotStateMap<Produto, Int>,
     total: Int,
     onCobrar: () -> Unit,
+    onCancelar: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Produtos", style = MaterialTheme.typography.titleLarge)
@@ -161,6 +193,9 @@ fun TelaCardapio(
         Spacer(Modifier.height(8.dp))
         Button(onClick = onCobrar, enabled = total > 0, modifier = Modifier.fillMaxWidth()) {
             Text("Cobrar")
+        }
+        Button(onClick = onCancelar, modifier = Modifier.fillMaxWidth()) {
+            Text("Cancelar Venda")
         }
     }
 }

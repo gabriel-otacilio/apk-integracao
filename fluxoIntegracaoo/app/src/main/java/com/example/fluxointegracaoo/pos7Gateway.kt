@@ -13,6 +13,33 @@ import kotlin.coroutines.resume
 class Pos7Gateway(private val activity: Activity) : PagamentoGateWay {
     override val nome = "POS7"
 
+    override suspend fun cancelar(onEtapa: (String) -> Unit): ResultTransacao {
+        if (!Pos7.info.getSipag(activity)) {
+            return ResultTransacao(aprovada = false, mensagem = "App Sipag (POS7) não encontrado")
+        }
+        return suspendCancellableCoroutine { cont ->
+            onEtapa("Abrindo POS7 para cancelamento...")
+
+            val dados = TransactionData(
+                IdTransactionPartinner = (System.currentTimeMillis() / 1000).toInt(),
+                product = null,
+                amount = null,
+                creditType = null,
+                typeTransaction = TypeTransaction.CANCELTRANSACTION,
+                packageName = activity.packageName,
+                receipt = true,
+            )
+
+            val callback = object : TransactionCallback {
+                override fun onTransactionResult(resultData: String) {
+                    Log.d("Pos7", "Cancelamento recebido: $resultData")
+                    if (cont.isActive) cont.resume(interpretarResultadoPos7(resultData))
+                }
+            }
+            Pos7.info.initTransaction(activity, dados, callback)
+        }
+    }
+
     override suspend fun pagar(
         pedido: PedidoPagamento,
         onEtapa: (String) -> Unit,
